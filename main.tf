@@ -5,7 +5,7 @@ region = "ap-southeast-1"
 
 resource "aws_instance" "one" {
   ami             = "ami-06018068a18569ff2"
-  instance_type   = "t2.micro"
+  instance_type   = "t3.micro"
   key_name        = "rahamabc"
   vpc_security_group_ids = [aws_security_group.five.id]
   availability_zone = "ap-southeast-1a"
