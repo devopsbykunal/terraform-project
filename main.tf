@@ -2,17 +2,16 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "3.66.0"
+      version = "5.57.0"
     }
   }
 }
 
-# Configure the AWS Provider
 provider "aws" {
-  region = "eu-north-1"
+  region = "us-east-1"
 }
 
-# Create a VPC
+# VPC
 resource "aws_vpc" "my-vpc" {
   cidr_block = "10.0.0.0/16"
   tags = {
@@ -20,13 +19,12 @@ resource "aws_vpc" "my-vpc" {
   }
 }
 
-# Create Web Public Subnet
+# Public Web Subnets
 resource "aws_subnet" "web-subnet-1" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "eu-north-1a"
+  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
-
   tags = {
     Name = "Web-1a"
   }
@@ -35,68 +33,61 @@ resource "aws_subnet" "web-subnet-1" {
 resource "aws_subnet" "web-subnet-2" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.2.0/24"
-  availability_zone       = "eu-north-1b"
+  availability_zone       = "us-east-1b"
   map_public_ip_on_launch = true
-
   tags = {
-    Name = "Web-2b"
+    Name = "Web-1b"
   }
 }
 
-# Create Application Private Subnet
+# Private Application Subnets
 resource "aws_subnet" "application-subnet-1" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.11.0/24"
-  availability_zone       = "eu-north-1a"
+  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = false
-
   tags = {
-    Name = "Application-1a"
+    Name = "App-1a"
   }
 }
 
 resource "aws_subnet" "application-subnet-2" {
   vpc_id                  = aws_vpc.my-vpc.id
   cidr_block              = "10.0.12.0/24"
-  availability_zone       = "eu-north-1b"
-  map_public_ip_on_launch = false
-
+  availability_zone       = "us-east-1b"
   tags = {
-    Name = "Application-2b"
+    Name = "App-1b"
   }
 }
 
-# Create Database Private Subnet
+# Private Database Subnets
 resource "aws_subnet" "database-subnet-1" {
   vpc_id            = aws_vpc.my-vpc.id
   cidr_block        = "10.0.21.0/24"
-  availability_zone = "eu-north-1a"
-
+  availability_zone = "us-east-1a"
   tags = {
-    Name = "Database-1a"
+    Name = "DB-1a"
   }
 }
 
 resource "aws_subnet" "database-subnet-2" {
   vpc_id            = aws_vpc.my-vpc.id
   cidr_block        = "10.0.22.0/24"
-  availability_zone = "eu-north-1b"
-
+  availability_zone = "us-east-1b"
   tags = {
-    Name = "Database-2b"
+    Name = "DB-1b"
   }
 }
 
-# Create Internet Gateway
+# Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.my-vpc.id
-
   tags = {
     Name = "SWIGGY-IGW"
   }
 }
 
-# Create Web layer route table
+# Route Table for Web Subnets
 resource "aws_route_table" "web-rt" {
   vpc_id = aws_vpc.my-vpc.id
 
@@ -110,7 +101,7 @@ resource "aws_route_table" "web-rt" {
   }
 }
 
-# Create Web Subnet association with Web route table
+# Association of Web Subnets with Route Table
 resource "aws_route_table_association" "a" {
   subnet_id      = aws_subnet.web-subnet-1.id
   route_table_id = aws_route_table.web-rt.id
@@ -121,7 +112,89 @@ resource "aws_route_table_association" "b" {
   route_table_id = aws_route_table.web-rt.id
 }
 
-# Create Web Security Group
+# EC2 Instances
+resource "aws_instance" "webserver1" {
+  ami                    = "ami-0d5eff06f840b45e9"  # Replace with your AMI ID
+  instance_type          = "t2.micro"
+  availability_zone      = "us-east-1a"
+  key_name               = "apr6pm"  # Replace with your key pair name
+  vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+  subnet_id              = aws_subnet.web-subnet-1.id
+  user_data              = file("apache.sh")  # Ensure apache.sh is correctly defined
+
+  tags = {
+    Name = "Web Server-1"
+  }
+}
+
+resource "aws_instance" "webserver2" {
+  ami                    = "ami-0d5eff06f840b45e9"  # Replace with your AMI ID
+  instance_type          = "t2.micro"
+  availability_zone      = "us-east-1b"
+  key_name               = "apr6pm"  # Replace with your key pair name
+  vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+  subnet_id              = aws_subnet.web-subnet-2.id
+  user_data              = file("apache.sh")  # Ensure apache.sh is correctly defined
+
+  tags = {
+    Name = "Web Server-2"
+  }
+}
+
+resource "aws_instance" "appserver1" {
+  ami                    = "ami-0d5eff06f840b45e9"  # Replace with your AMI ID
+  instance_type          = "t2.micro"
+  availability_zone      = "us-east-1a"
+  key_name               = "apr6pm"  # Replace with your key pair name
+  vpc_security_group_ids = [aws_security_group.appserver-sg.id]
+  subnet_id              = aws_subnet.application-subnet-1.id
+
+  tags = {
+    Name = "App Server-1"
+  }
+}
+
+resource "aws_instance" "appserver2" {
+  ami                    = "ami-0d5eff06f840b45e9"  # Replace with your AMI ID
+  instance_type          = "t2.micro"
+  availability_zone      = "us-east-1b"
+  key_name               = "apr6pm"  # Replace with your key pair name
+  vpc_security_group_ids = [aws_security_group.appserver-sg.id]
+  subnet_id              = aws_subnet.application-subnet-2.id
+
+  tags = {
+    Name = "App Server-2"
+  }
+}
+
+# RDS Database Instance
+resource "aws_db_instance" "default" {
+  allocated_storage    = 10
+  db_name              = "mydb"
+  engine               = "mysql"
+  engine_version       = "8.0.35"
+  instance_class       = "db.t3.micro"
+  username             = "admin"
+  password             = "Raham#123568i"
+  skip_final_snapshot  = true
+  db_subnet_group_name = aws_db_subnet_group.default.name  # Ensure this matches your DB subnet group
+
+  tags = {
+    Name = "MyDB"
+  }
+}
+
+# DB Subnet Group
+resource "aws_db_subnet_group" "default" {
+  name       = "main"
+  subnet_ids = [aws_subnet.database-subnet-1.id, aws_subnet.database-subnet-2.id]
+
+  tags = {
+    Name = "DB Subnet Group"
+  }
+}
+
+# Web Security Group
 resource "aws_security_group" "webserver-sg" {
   name        = "webserver-sg"
   description = "Allow HTTP inbound traffic"
@@ -131,6 +204,14 @@ resource "aws_security_group" "webserver-sg" {
     description = "HTTP from VPC"
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH from VPC"
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -147,9 +228,9 @@ resource "aws_security_group" "webserver-sg" {
   }
 }
 
-# Create Application Security Group
+# Application Security Group
 resource "aws_security_group" "appserver-sg" {
-  name        = "appserver-sg"
+  name        = "appserver-SG"
   description = "Allow inbound traffic from ALB"
   vpc_id      = aws_vpc.my-vpc.id
 
@@ -162,7 +243,7 @@ resource "aws_security_group" "appserver-sg" {
   }
 
   ingress {
-    description = "Allow SSH from anywhere"
+    description = "SSH from VPC"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -181,14 +262,14 @@ resource "aws_security_group" "appserver-sg" {
   }
 }
 
-# Create Database Security Group
+# Database Security Group
 resource "aws_security_group" "database-sg" {
-  name        = "database-sg"
+  name        = "Database-SG"
   description = "Allow inbound traffic from application layer"
   vpc_id      = aws_vpc.my-vpc.id
 
   ingress {
-    description = "Allow traffic from application layer"
+    description = "Allow MySQL traffic from application layer"
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
@@ -196,18 +277,18 @@ resource "aws_security_group" "database-sg" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 32768
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
-    Name = "Database-SG"
+    Name = "DB-SG"
   }
 }
 
-# Create Application Load Balancer
+# Load Balancer
 resource "aws_lb" "external-elb" {
   name               = "External-LB"
   internal           = false
@@ -216,6 +297,7 @@ resource "aws_lb" "external-elb" {
   subnets            = [aws_subnet.web-subnet-1.id, aws_subnet.web-subnet-2.id]
 }
 
+# Target Group for Load Balancer
 resource "aws_lb_target_group" "external-elb" {
   name     = "ALB-TG"
   port     = 80
@@ -223,6 +305,7 @@ resource "aws_lb_target_group" "external-elb" {
   vpc_id   = aws_vpc.my-vpc.id
 }
 
+# Attach EC2 Instances to Target Group
 resource "aws_lb_target_group_attachment" "external-elb1" {
   target_group_arn = aws_lb_target_group.external-elb.arn
   target_id        = aws_instance.webserver1.id
@@ -243,6 +326,7 @@ resource "aws_lb_target_group_attachment" "external-elb2" {
   ]
 }
 
+# Listener for Load Balancer
 resource "aws_lb_listener" "external-elb" {
   load_balancer_arn = aws_lb.external-elb.arn
   port              = "80"
@@ -254,34 +338,29 @@ resource "aws_lb_listener" "external-elb" {
   }
 }
 
-output "lb_dns_name" {
-  description = "The DNS name of the load balancer"
-  value       = aws_lb.external-elb.dns_name
-}
+# S3 Bucket
+resource "aws_s3_bucket" "example" {
+  bucket = "rahamtestbycketterra7788abcdefxxc"
 
-# Create S3 Bucket
-resource "aws_s3_bucket" "my_bucket" {
-  bucket = "batch4pmdevopswithaws202477"
-
-  acl    = "private"
-  versioning {
-    enabled = true
+  tags = {
+    Name        = "rahamtestbycketterra7788abcdefxxc"
+    Environment = "Dev"
   }
 }
 
-# Create IAM Users
+# IAM Users
 resource "aws_iam_user" "one" {
-  for_each = var.iam_users
-  name     = each.value
+  for_each = toset(var.iam_users)
+  name     = each.key
 }
 
 variable "iam_users" {
-  description = "List of IAM users"
+  description = "Set of IAM user names"
   type        = set(string)
   default     = ["user1", "user2", "user3", "user4"]
 }
 
-# Create IAM Group
+# IAM Group
 resource "aws_iam_group" "two" {
-  name = "devopswithkunaljoshi"
+  name = "devopswithawsbyrahamshaik"
 }
